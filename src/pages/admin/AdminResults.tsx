@@ -457,14 +457,32 @@ export const AdminResults: React.FC = () => {
 
               <div className="overflow-x-auto">
                 <LineChart
-                  width={800}
+                  width={1100}
                   height={400}
                   data={selectedResult.results.slice(0, replayState.currentStep + 1)}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 50, right: 100, left: 100, bottom: 50 }}  // 增加边距确保标签可见
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="step" />
-                  <YAxis />
+                  <XAxis 
+                    dataKey="step"
+                    label={{ 
+                      value: '仿真回合', 
+                      position: 'right',  // 将X轴标签放在右侧
+                      offset: -30,  // 调整偏移量
+                      style: { fontWeight: 'bold' }
+                    }}
+                    tick={{ dy: 5 }}
+                  />
+                  <YAxis 
+                    label={{ 
+                      value: '收益值', 
+                      angle: 0, 
+                      position: 'top',  // 将Y轴标签放在顶部
+                      offset: 15,  // 调整偏移量
+                      style: { fontWeight: 'bold' }
+                    }}
+                    tick={{ dx: -5 }}
+                  />
                   <Tooltip />
                   <Legend />
                   {selectedResult.game_models.config.players.map((player, index) => (

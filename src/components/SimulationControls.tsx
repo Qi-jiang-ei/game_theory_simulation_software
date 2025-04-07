@@ -52,10 +52,10 @@ export const SimulationControls: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="step" 
-                    label={{ value: '仿真回合', position: 'bottom', offset: 15 }}
+                    label={{ value: '仿真回合', position: 'bottom', offset: 10,style: { fontWeight: 'bold' } }}
                   />
                   <YAxis 
-                    label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                    label={{ value: '收益值', angle: 0, position: 'top', offset: 10,style: { fontWeight: 'bold' } }}
                   />
                   <Tooltip />
                   <Legend verticalAlign="top" height={36} />
@@ -123,11 +123,11 @@ export const SimulationControls: React.FC = () => {
                         sum + r.payoffs[player.id], 0
                       )
                     }))}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 5, right: 40, left: 40, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis label={{ value: '累计收益', angle: -90, position: 'insideLeft' }} />
+                    <YAxis label={{ value: '累计收益', angle: 0, position: 'insideLeft' ,offset:-40}} />
                     <Tooltip />
                     <Bar dataKey="value" fill="#8884d8">
                       {selectedModel.players.map((_, index) => (
@@ -170,10 +170,10 @@ export const SimulationControls: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="step" 
-                    label={{ value: '仿真回合', position: 'bottom', offset: 0 }}
+                    label={{ value: '仿真回合', position: 'bottom', offset: 10, style: { fontWeight: 'bold' } }}
                   />
                   <YAxis 
-                    label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                    label={{ value: '收益值', angle: 0, position: 'top', offset: 10, style: { fontWeight: 'bold' } }}
                   />
                   <Tooltip />
                   <Legend verticalAlign="top" height={36} />
@@ -208,7 +208,7 @@ export const SimulationControls: React.FC = () => {
                         ).length
                       }))
                     )}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 50 }}
+                    margin={{ top: 5, right: 30, left: 30, bottom: 50 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
@@ -217,7 +217,7 @@ export const SimulationControls: React.FC = () => {
                       textAnchor="end"
                       height={60}
                     />
-                    <YAxis label={{ value: '选择次数', angle: -90, position: 'insideLeft' }} />
+                    <YAxis label={{ value: '选择次数', angle: 0, position: 'insideLeft',offset: -30 }} />
                     <Tooltip />
                     <Bar dataKey="count" fill="#8884d8">
                       {selectedModel.players.flatMap(player =>
@@ -239,11 +239,11 @@ export const SimulationControls: React.FC = () => {
                         sum + r.payoffs[player.id], 0
                       ) / simulationState.results.length
                     }))}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis label={{ value: '平均收益', angle: -90, position: 'insideLeft' }} />
+                    <YAxis label={{ value: '平均收益', angle: 0, position: 'insideLeft',offset: -40 }} />
                     <Tooltip />
                     <Bar dataKey="value" fill="#8884d8">
                       {selectedModel.players.map((_, index) => (
@@ -271,10 +271,10 @@ export const SimulationControls: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="step" 
-                      label={{ value: '仿真回合', position: 'bottom', offset: 0 }}
+                      label={{ value: '仿真回合', position: 'bottom', offset: 10 }}
                     />
                     <YAxis 
-                      label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                      label={{ value: '收益值', angle: 0, position: 'insideLeft', offset: -20 }}
                     />
                     <Tooltip />
                     <Legend verticalAlign="top" height={36} />
