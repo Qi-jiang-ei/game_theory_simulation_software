@@ -33,9 +33,12 @@ const AdminManagement: React.FC = () => {
   
       if (adminError) throw adminError;
   
-      // 批量获取用户邮箱 - 使用正确的Supabase Auth API
-      const userIds = adminData.map(admin => admin.user_id);
-      // 修改fetchAdmins函数中的调用
+      // 检查supabaseAdmin是否已初始化
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not initialized');
+      }
+  
+      // 获取用户列表
       const { data: { users }, error: userError } = await supabaseAdmin.auth.admin.listUsers({
         page: 1,
         perPage: 1000
@@ -68,6 +71,8 @@ const AdminManagement: React.FC = () => {
         page: 1,
         perPage: 1000
       });
+      
+      if (userError) throw userError; // 添加错误处理
       
       const user = users.find(u => u.email === email);
       

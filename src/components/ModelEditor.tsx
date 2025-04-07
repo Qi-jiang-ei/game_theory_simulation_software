@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameModel, GameType, Player } from '../types/gameTheory';
-import { Plus, Minus, Save, X, HelpCircle } from 'lucide-react';
+import { Plus, Minus, Save, X, HelpCircle, AlertCircle } from 'lucide-react';
+import { useToastStore } from './Toast';
 
 interface ModelEditorProps {
   model?: GameModel;
@@ -22,6 +23,8 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
   const [payoffMatrix, setPayoffMatrix] = useState<{ [key: string]: number[] }>(
     model?.payoffMatrix || {}
   );
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const { addToast } = useToastStore();
 
   useEffect(() => {
     updatePayoffMatrix();
@@ -43,6 +46,40 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
     setPayoffMatrix(newMatrix);
   };
 
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!name.trim()) {
+      newErrors.name = '请输入模型名称';
+    }
+
+    if (!description.trim()) {
+      newErrors.description = '请输入模型描述';
+    }
+
+    players.forEach((player, index) => {
+      if (!player.name.trim()) {
+        newErrors[`player_${index}_name`] = '请输入参与者名称';
+      }
+      player.strategies.forEach((strategy, sIndex) => {
+        if (!strategy.trim()) {
+          newErrors[`player_${index}_strategy_${sIndex}`] = '请输入策略名称';
+        }
+      });
+    });
+
+    Object.entries(payoffMatrix).forEach(([combination, payoffs]) => {
+      payoffs.forEach((payoff, index) => {
+        if (isNaN(payoff)) {
+          newErrors[`payoff_${combination}_${index}`] = '收益值必须是数字';
+        }
+      });
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const addPlayer = () => {
     if (players.length < 4) {
       const newId = Math.max(...players.map(p => p.id)) + 1;
@@ -50,12 +87,22 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
         ...players,
         { id: newId, name: `玩家${newId}`, strategies: ['策略A'] }
       ]);
+      addToast({
+        type: 'success',
+        message: '成功添加新参与者',
+        duration: 2000
+      });
     }
   };
 
   const removePlayer = (playerId: number) => {
     if (players.length > 2) {
       setPlayers(players.filter(p => p.id !== playerId));
+      addToast({
+        type: 'info',
+        message: '已移除参与者',
+        duration: 2000
+      });
     }
   };
 
@@ -110,6 +157,16 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      addToast({
+        type: 'error',
+        message: '请检查并填写所有必填项',
+        duration: 3000
+      });
+      return;
+    }
+
     const newModel: GameModel = {
       id: model?.id || crypto.randomUUID(),
       name,
@@ -119,6 +176,7 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
       payoffMatrix,
       isClassic: false
     };
+
     onSave(newModel);
   };
 
@@ -141,14 +199,21 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">模型名称</label>
+              <label className="block text-sm font-medium text-gray-700">
+                模型名称 <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className={`mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+                  errors.name ? 'border-red-300' : 'border-gray-300'
+                }`}
                 required
               />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              )}
             </div>
 
             <div>
@@ -166,13 +231,21 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">模型描述</label>
+              <label className="block text-sm font-medium text-gray-700">
+                模型描述 <span className="text-red-500">*</span>
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className={`mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+                  errors.description ? 'border-red-300' : 'border-gray-300'
+                }`}
+                required
               />
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+              )}
             </div>
 
             <div>
@@ -196,14 +269,19 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
                     <div className="flex justify-between items-center mb-4">
                       <div className="flex-1">
                         <label className="block text-sm font-medium text-gray-700">
-                          参与者名称
+                          参与者名称 <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           value={player.name}
                           onChange={(e) => updatePlayerName(player.id, e.target.value)}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          className={`mt-1 block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+                            errors[`player_${playerIndex}_name`] ? 'border-red-300' : 'border-gray-300'
+                          }`}
                         />
+                        {errors[`player_${playerIndex}_name`] && (
+                          <p className="mt-1 text-sm text-red-600">{errors[`player_${playerIndex}_name`]}</p>
+                        )}
                       </div>
                       {isCustom && players.length > 2 && (
                         <button
@@ -218,7 +296,7 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        可选策略
+                        可选策略 <span className="text-red-500">*</span>
                       </label>
                       <div className="space-y-2 mt-2">
                         {player.strategies.map((strategy, strategyIndex) => (
@@ -227,7 +305,9 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
                               type="text"
                               value={strategy}
                               onChange={(e) => updateStrategyName(player.id, strategyIndex, e.target.value)}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              className={`block w-full rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 ${
+                                errors[`player_${playerIndex}_strategy_${strategyIndex}`] ? 'border-red-300' : 'border-gray-300'
+                              }`}
                             />
                             <button
                               type="button"
@@ -260,7 +340,7 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
                 <button
                   type="button"
                   className="text-gray-500 hover:text-gray-700"
-                  title="收益矩阵说明"
+                  title="每个单元格表示在特定策略组合下各参与者获得的收益值"
                 >
                   <HelpCircle className="w-4 h-4" />
                 </button>
@@ -291,9 +371,16 @@ export const ModelEditor: React.FC<ModelEditorProps> = ({ model, onSave, onCance
                               type="number"
                               value={payoff}
                               onChange={(e) => updatePayoff(combination, index, e.target.value)}
-                              className="w-full border-0 focus:ring-0"
+                              className={`w-full border-0 focus:ring-0 ${
+                                errors[`payoff_${combination}_${index}`] ? 'bg-red-50' : ''
+                              }`}
                               step="0.1"
                             />
+                            {errors[`payoff_${combination}_${index}`] && (
+                              <p className="mt-1 text-sm text-red-600">
+                                {errors[`payoff_${combination}_${index}`]}
+                              </p>
+                            )}
                           </td>
                         ))}
                       </tr>

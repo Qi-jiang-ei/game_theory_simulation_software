@@ -212,7 +212,7 @@ export const ModelSelector: React.FC = () => {
       {/* 模型编辑器 */}
       {(editingModel || isCreating) && (
         <ModelEditor
-          model={editingModel}
+          model={editingModel || undefined}
           onSave={handleSaveModel}
           onCancel={() => {
             setEditingModel(null);

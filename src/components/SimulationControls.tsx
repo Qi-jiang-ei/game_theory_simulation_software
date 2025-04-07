@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Pause, RotateCcw, Save, Upload, ChevronRight } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { GameType } from '../types/gameTheory';
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
@@ -41,213 +41,24 @@ export const SimulationControls: React.FC = () => {
     switch (selectedModel.type) {
       case GameType.COMPLETE_STATIC:
         return (
-          <div className="space-y-6">
-            <LineChart
-              width={800}
-              height={300}
-              data={simulationState.results}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="step" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {selectedModel.players.map((player, index) => (
-                <Line
-                  key={player.id}
-                  type="monotone"
-                  dataKey={(d) => d.payoffs[player.id]}
-                  name={`${player.name}收益`}
-                  stroke={COLORS[index]}
-                />
-              ))}
-            </LineChart>
-            <div className="grid grid-cols-2 gap-4">
-              {selectedModel.players.map((player, index) => (
-                <div key={player.id} className="border rounded-lg p-4">
-                  <h4 className="text-lg font-semibold mb-2">{player.name}策略分布</h4>
-                  <PieChart width={300} height={200}>
-                    <Pie
-                      data={player.strategies.map(strategy => ({
-                        name: strategy,
-                        value: simulationState.results.filter(r => 
-                          r.playerChoices[player.id] === strategy
-                        ).length
-                      }))}
-                      cx={150}
-                      cy={100}
-                      innerRadius={40}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label
-                    >
-                      {player.strategies.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case GameType.COMPLETE_DYNAMIC:
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-lg font-semibold mb-2">累计收益</h4>
-                <BarChart
-                  width={400}
-                  height={300}
-                  data={selectedModel.players.map(player => ({
-                    name: player.name,
-                    value: simulationState.results.reduce((sum, r) => 
-                      sum + r.payoffs[player.id], 0
-                    )
-                  }))}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8">
-                    {selectedModel.players.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </div>
-              <div>
-                <h4 className="text-lg font-semibold mb-2">决策树路径</h4>
-                <div className="border rounded-lg p-4 h-[300px] overflow-auto">
-                  {simulationState.results.map((result, index) => (
-                    <div key={index} className="mb-2 flex items-center">
-                      <span className="text-sm text-gray-500">步骤 {result.step}:</span>
-                      <div className="ml-2 flex items-center">
-                        {selectedModel.players.map((player, pIndex) => (
-                          <React.Fragment key={player.id}>
-                            <span className="px-2 py-1 rounded bg-gray-100 text-sm">
-                              {player.name}: {result.playerChoices[player.id]}
-                            </span>
-                            {pIndex < selectedModel.players.length - 1 && (
-                              <ChevronRight className="w-4 h-4 mx-1 text-gray-400" />
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <LineChart
-              width={800}
-              height={200}
-              data={simulationState.results}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="step" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {selectedModel.players.map((player, index) => (
-                <Line
-                  key={player.id}
-                  type="monotone"
-                  dataKey={(d) => d.payoffs[player.id]}
-                  name={`${player.name}收益`}
-                  stroke={COLORS[index]}
-                />
-              ))}
-            </LineChart>
-          </div>
-        );
-
-      case GameType.INCOMPLETE_STATIC:
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-lg font-semibold mb-2">策略选择频率</h4>
-                <BarChart
-                  width={400}
-                  height={300}
-                  data={selectedModel.players.flatMap(player =>
-                    player.strategies.map(strategy => ({
-                      name: `${player.name}-${strategy}`,
-                      count: simulationState.results.filter(r =>
-                        r.playerChoices[player.id] === strategy
-                      ).length
-                    }))
-                  )}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#8884d8">
-                    {selectedModel.players.flatMap(player =>
-                      player.strategies.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))
-                    )}
-                  </Bar>
-                </BarChart>
-              </div>
-              <div>
-                <h4 className="text-lg font-semibold mb-2">平均收益</h4>
-                <BarChart
-                  width={400}
-                  height={300}
-                  data={selectedModel.players.map(player => ({
-                    name: player.name,
-                    value: simulationState.results.reduce((sum, r) =>
-                      sum + r.payoffs[player.id], 0
-                    ) / simulationState.results.length
-                  }))}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#8884d8">
-                    {selectedModel.players.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </div>
-            </div>
-          </div>
-        );
-
-      case GameType.INCOMPLETE_DYNAMIC:
-        return (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-lg font-semibold mb-2">信号传递效果</h4>
+          <div className="space-y-8">
+            <div className="border rounded-lg p-6">
+              <h4 className="text-lg font-semibold mb-4">收益变化趋势</h4>
+              <ResponsiveContainer width="100%" height={350}>
                 <LineChart
-                  width={400}
-                  height={300}
                   data={simulationState.results}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="step" />
-                  <YAxis />
+                  <XAxis 
+                    dataKey="step" 
+                    label={{ value: '仿真回合', position: 'bottom', offset: 15 }}
+                  />
+                  <YAxis 
+                    label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                  />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" height={36} />
                   {selectedModel.players.map((player, index) => (
                     <Line
                       key={player.id}
@@ -258,24 +69,246 @@ export const SimulationControls: React.FC = () => {
                     />
                   ))}
                 </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              {selectedModel.players.map((player, index) => (
+                <div key={player.id} className="border rounded-lg p-6">
+                  <h4 className="text-lg font-semibold mb-4">{player.name}策略选择分布</h4>
+                  <div className="flex justify-center">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={player.strategies.map(strategy => ({
+                            name: strategy,
+                            value: simulationState.results.filter(r => 
+                              r.playerChoices[player.id] === strategy
+                            ).length
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {player.strategies.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case GameType.COMPLETE_DYNAMIC:
+        return (
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">累计收益对比</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={selectedModel.players.map(player => ({
+                      name: player.name,
+                      value: simulationState.results.reduce((sum, r) => 
+                        sum + r.payoffs[player.id], 0
+                      )
+                    }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis label={{ value: '累计收益', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#8884d8">
+                      {selectedModel.players.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              <div>
-                <h4 className="text-lg font-semibold mb-2">策略匹配分析</h4>
-                <div className="border rounded-lg p-4 h-[300px] overflow-auto">
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">决策路径追踪</h4>
+                <div className="h-[300px] overflow-auto">
                   {simulationState.results.map((result, index) => (
                     <div key={index} className="mb-2">
                       <div className="text-sm text-gray-500">回合 {result.step + 1}</div>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1">
+                        {selectedModel.players.map((player, pIndex) => (
+                          <React.Fragment key={player.id}>
+                            <span className="px-2 py-1 rounded bg-gray-100 text-sm">
+                              {player.name}: {result.playerChoices[player.id]}
+                            </span>
+                            {pIndex < selectedModel.players.length - 1 && (
+                              <ChevronRight className="w-4 h-4 text-gray-400" />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="border rounded-lg p-6">
+              <h4 className="text-lg font-semibold mb-4">收益变化趋势</h4>
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart
+                  data={simulationState.results}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="step" 
+                    label={{ value: '仿真回合', position: 'bottom', offset: 0 }}
+                  />
+                  <YAxis 
+                    label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                  />
+                  <Tooltip />
+                  <Legend verticalAlign="top" height={36} />
+                  {selectedModel.players.map((player, index) => (
+                    <Line
+                      key={player.id}
+                      type="monotone"
+                      dataKey={(d) => d.payoffs[player.id]}
+                      name={`${player.name}收益`}
+                      stroke={COLORS[index]}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+
+      case GameType.INCOMPLETE_STATIC:
+        return (
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">策略选择频率分析</h4>
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart
+                    data={selectedModel.players.flatMap(player =>
+                      player.strategies.map(strategy => ({
+                        name: `${player.name}-${strategy}`,
+                        count: simulationState.results.filter(r =>
+                          r.playerChoices[player.id] === strategy
+                        ).length
+                      }))
+                    )}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 50 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis label={{ value: '选择次数', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#8884d8">
+                      {selectedModel.players.flatMap(player =>
+                        player.strategies.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))
+                      )}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">平均收益分析</h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={selectedModel.players.map(player => ({
+                      name: player.name,
+                      value: simulationState.results.reduce((sum, r) =>
+                        sum + r.payoffs[player.id], 0
+                      ) / simulationState.results.length
+                    }))}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis label={{ value: '平均收益', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#8884d8">
+                      {selectedModel.players.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        );
+
+      case GameType.INCOMPLETE_DYNAMIC:
+        return (
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">信号传递效果分析</h4>
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart
+                    data={simulationState.results}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 30 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="step" 
+                      label={{ value: '仿真回合', position: 'bottom', offset: 0 }}
+                    />
+                    <YAxis 
+                      label={{ value: '收益值', angle: -90, position: 'insideLeft', offset: 10 }}
+                    />
+                    <Tooltip />
+                    <Legend verticalAlign="top" height={36} />
+                    {selectedModel.players.map((player, index) => (
+                      <Line
+                        key={player.id}
+                        type="monotone"
+                        dataKey={(d) => d.payoffs[player.id]}
+                        name={`${player.name}收益`}
+                        stroke={COLORS[index]}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-semibold mb-4">策略匹配分析</h4>
+                <div className="h-[300px] overflow-auto space-y-4">
+                  {simulationState.results.map((result, index) => (
+                    <div key={index} className="border rounded p-3">
+                      <div className="text-sm font-medium mb-2">回合 {result.step + 1}</div>
+                      <div className="grid grid-cols-2 gap-2">
                         {selectedModel.players.map(player => (
                           <div
                             key={player.id}
-                            className="px-2 py-1 rounded bg-gray-100 text-sm"
+                            className="bg-gray-50 p-2 rounded"
                           >
-                            <span className="font-medium">{player.name}:</span>{' '}
-                            {result.playerChoices[player.id]}
-                            <span className="ml-2 text-gray-600">
-                              (收益: {result.payoffs[player.id]})
-                            </span>
+                            <div className="font-medium">{player.name}</div>
+                            <div className="text-sm text-gray-600">
+                              策略: {result.playerChoices[player.id]}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              收益: {result.payoffs[player.id]}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -345,7 +378,7 @@ export const SimulationControls: React.FC = () => {
       <div className="border-t pt-4">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <ChevronRight className="w-5 h-5 text-blue-600" />
-          仿真结果
+          仿真结果可视化
         </h3>
         
         {renderVisualization()}
