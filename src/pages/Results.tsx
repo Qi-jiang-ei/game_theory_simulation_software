@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { Eye, Download, Trash2, Play, Pause, RotateCcw, FileText } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell } from 'recharts';
-import { useToastStore } from '../../components/Toast';
+import { supabase } from '../lib/supabaseClient';
+import { Eye, Download, Play, Pause, RotateCcw, FileText, Trash2 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell, ResponsiveContainer } from 'recharts';
+import { useToastStore } from '../components/Toast';
 
 interface SimulationResultRecord {
   id: string;
@@ -23,7 +23,7 @@ interface SimulationResultRecord {
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042'];
 
-export const AdminResults: React.FC = () => {
+export const Results: React.FC = () => {
   const [results, setResults] = useState<SimulationResultRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedResult, setSelectedResult] = useState<SimulationResultRecord | null>(null);
@@ -31,6 +31,7 @@ export const AdminResults: React.FC = () => {
     isPlaying: false,
     currentStep: 0,
     speed: 1000, // 毫秒
+    isDragging: false, // 新增：是否正在拖动时间轴
   });
   const [showAnalysis, setShowAnalysis] = useState(false);
   const { addToast } = useToastStore();
@@ -82,35 +83,6 @@ export const AdminResults: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个仿真结果吗？')) return;
-
-    try {
-      const { error } = await supabase
-        .from('simulation_results')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      setResults(results.filter(result => result.id !== id));
-      if (selectedResult?.id === id) {
-        setSelectedResult(null);
-      }
-      addToast({
-        type: 'success',
-        message: '删除成功',
-        duration: 3000
-      });
-    } catch (error) {
-      console.error('删除仿真结果失败:', error);
-      addToast({
-        type: 'error',
-        message: '删除失败',
-        duration: 3000
-      });
-    }
-  };
-
   const formatDate = (date: string) => {
     return new Date(date).toLocaleString('zh-CN', {
       year: 'numeric',
@@ -141,27 +113,91 @@ export const AdminResults: React.FC = () => {
     return csv;
   };
 
+  const handleExport = (result: SimulationResultRecord) => {
+    try {
+      const timestamp = formatDate(result.created_at);
+      const filename = `${result.game_models.name}_${timestamp}`;
+      const csvContent = convertToCSV(result);
+      const csvBlob = new Blob(['\ufeff' + csvContent], {
+        type: 'text/csv;charset=utf-8'
+      });
+      const csvUrl = URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      link.href = csvUrl;
+      link.download = `${filename}.csv`;
+      if (document.body) {
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(csvUrl);
+      addToast({
+        type: 'success',
+        message: '导出成功',
+        duration: 3000
+      });
+    } catch (error) {
+      console.error('导出失败:', error);
+      addToast({
+        type: 'error',
+        message: '导出失败',
+        duration: 3000
+      });
+    }
+  };
+
+  const handleReplayControl = () => {
+    if (!selectedResult) return;
+    if (replayState.isPlaying) {
+      setReplayState(prev => ({ ...prev, isPlaying: false }));
+    } else {
+      if (replayState.currentStep >= (selectedResult?.results.length || 0) - 1) {
+        setReplayState({ ...replayState, currentStep: 0, isPlaying: true });
+      } else {
+        setReplayState(prev => ({ ...prev, isPlaying: true }));
+      }
+    }
+  };
+
+  const handleReplayReset = () => {
+    setReplayState({ ...replayState, currentStep: 0, isPlaying: false });
+  };
+
+  // 在 handleReplayControl 函数后添加新的处理函数
+  const handleTimelineChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newStep = parseInt(event.target.value);
+    setReplayState(prev => ({
+      ...prev,
+      currentStep: newStep,
+      isPlaying: false // 拖动时暂停播放
+    }));
+  };
+
+  const handleTimelineMouseDown = () => {
+    setReplayState(prev => ({ ...prev, isDragging: true }));
+  };
+
+  const handleTimelineMouseUp = () => {
+    setReplayState(prev => ({ ...prev, isDragging: false }));
+  };
+
+  // 分析模式内容
   const generateAnalysisReport = (result: SimulationResultRecord) => {
     const players = result.game_models.config.players;
     const totalRounds = result.results.length;
-    
-    // 计算每个玩家的统计数据
     const playerStats = players.map(player => {
       const strategies = new Map<string, number>();
       let totalPayoff = 0;
       let maxPayoff = -Infinity;
       let minPayoff = Infinity;
-      
       result.results.forEach(round => {
         const strategy = round.playerChoices[player.id];
         strategies.set(strategy, (strategies.get(strategy) || 0) + 1);
-        
         const payoff = round.payoffs[player.id];
         totalPayoff += payoff;
         maxPayoff = Math.max(maxPayoff, payoff);
         minPayoff = Math.min(minPayoff, payoff);
       });
-
       return {
         player,
         avgPayoff: totalPayoff / totalRounds,
@@ -170,11 +206,9 @@ export const AdminResults: React.FC = () => {
         strategies: Object.fromEntries(strategies),
       };
     });
-
     return (
       <div className="space-y-6">
         <h3 className="text-xl font-semibold">数据分析报告</h3>
-        
         <div className="grid grid-cols-2 gap-4">
           <div className="border rounded-lg p-4">
             <h4 className="text-lg font-medium mb-4">基本信息</h4>
@@ -185,7 +219,6 @@ export const AdminResults: React.FC = () => {
               <li>创建时间：{formatDate(result.created_at)}</li>
             </ul>
           </div>
-
           <div className="border rounded-lg p-4">
             <h4 className="text-lg font-medium mb-4">整体表现</h4>
             <BarChart width={300} height={200} data={playerStats}>
@@ -201,7 +234,6 @@ export const AdminResults: React.FC = () => {
             </BarChart>
           </div>
         </div>
-
         <div className="space-y-4">
           <h4 className="text-lg font-medium">玩家详细分析</h4>
           {playerStats.map((stat) => (
@@ -227,7 +259,6 @@ export const AdminResults: React.FC = () => {
             </div>
           ))}
         </div>
-
         <div className="border rounded-lg p-4">
           <h4 className="text-lg font-medium mb-4">结论与建议</h4>
           <ul className="space-y-2">
@@ -246,70 +277,32 @@ export const AdminResults: React.FC = () => {
     );
   };
 
-  const handleExport = (result: SimulationResultRecord) => {
+  // 删除仿真结果
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('确定要删除这个仿真结果吗？')) return;
     try {
-      const timestamp = formatDate(result.created_at);
-      const filename = `${result.game_models.name}_${timestamp}`;
-
-      // Export as CSV
-      const csvContent = convertToCSV(result);
-      const csvBlob = new Blob(['\ufeff' + csvContent], {
-        type: 'text/csv;charset=utf-8'
-      });
-      const csvUrl = URL.createObjectURL(csvBlob);
-      const link = document.createElement('a');
-      link.href = csvUrl;
-      link.download = `${filename}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(csvUrl);
-
-      // Export JSON
-      const jsonContent = JSON.stringify(result.results, null, 2);
-      const jsonBlob = new Blob([jsonContent], {
-        type: 'application/json'
-      });
-      const jsonUrl = URL.createObjectURL(jsonBlob);
-      const jsonLink = document.createElement('a');
-      jsonLink.href = jsonUrl;
-      jsonLink.download = `${filename}.json`;
-      document.body.appendChild(jsonLink);
-      jsonLink.click();
-      document.body.removeChild(jsonLink);
-      URL.revokeObjectURL(jsonUrl);
-
+      const { error } = await supabase
+        .from('simulation_results')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      setResults(results.filter(result => result.id !== id));
+      if (selectedResult?.id === id) {
+        setSelectedResult(null);
+      }
       addToast({
         type: 'success',
-        message: '导出成功',
+        message: '删除成功',
         duration: 3000
       });
     } catch (error) {
-      console.error('导出失败:', error);
+      console.error('删除仿真结果失败:', error);
       addToast({
         type: 'error',
-        message: '导出失败',
+        message: '删除失败',
         duration: 3000
       });
     }
-  };
-
-  const handleReplayControl = () => {
-    if (!selectedResult) return;
-    
-    if (replayState.isPlaying) {
-      setReplayState(prev => ({ ...prev, isPlaying: false }));
-    } else {
-      if (replayState.currentStep >= selectedResult.results.length - 1) {
-        setReplayState({ ...replayState, currentStep: 0, isPlaying: true });
-      } else {
-        setReplayState(prev => ({ ...prev, isPlaying: true }));
-      }
-    }
-  };
-
-  const handleReplayReset = () => {
-    setReplayState({ ...replayState, currentStep: 0, isPlaying: false });
   };
 
   if (loading) {
@@ -319,8 +312,7 @@ export const AdminResults: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">仿真结果管理</h2>
-
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">仿真结果</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -342,18 +334,14 @@ export const AdminResults: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {results.map((result) => (
                 <tr key={result.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {result.game_models.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {result.game_models.type}
-                    </span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {result.game_models.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(result.created_at).toLocaleString()}
+                    {result.game_models.type}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(result.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
@@ -388,7 +376,6 @@ export const AdminResults: React.FC = () => {
           </table>
         </div>
       </div>
-
       {selectedResult && (
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
@@ -411,7 +398,6 @@ export const AdminResults: React.FC = () => {
               </button>
             </div>
           </div>
-
           {showAnalysis ? (
             generateAnalysisReport(selectedResult)
           ) : (
@@ -454,35 +440,31 @@ export const AdminResults: React.FC = () => {
                   回合: {replayState.currentStep + 1} / {selectedResult.results.length}
                 </span>
               </div>
-
-              <div className="overflow-x-auto">
+              <div className="w-full px-4 mb-4">
+                <input
+                  type="range"
+                  min="0"
+                  max={selectedResult.results.length - 1}
+                  value={replayState.currentStep}
+                  onChange={handleTimelineChange}
+                  onMouseDown={handleTimelineMouseDown}
+                  onMouseUp={handleTimelineMouseUp}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(replayState.currentStep / (selectedResult.results.length - 1)) * 100}%, #e5e7eb ${(replayState.currentStep / (selectedResult.results.length - 1)) * 100}%, #e5e7eb 100%)`
+                  }}
+                />
+              </div>
+              <div className="flex justify-center my-4">
                 <LineChart
-                  width={1100}
+                  width={800}
                   height={400}
                   data={selectedResult.results.slice(0, replayState.currentStep + 1)}
-                  margin={{ top: 50, right: 100, left: 100, bottom: 50 }}  // 增加边距确保标签可见
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="step"
-                    label={{ 
-                      value: '仿真回合', 
-                      position: 'right',  // 将X轴标签放在右侧
-                      offset: -30,  // 调整偏移量
-                      style: { fontWeight: 'bold' }
-                    }}
-                    tick={{ dy: 5 }}
-                  />
-                  <YAxis 
-                    label={{ 
-                      value: '收益值', 
-                      angle: 0, 
-                      position: 'top',  // 将Y轴标签放在顶部
-                      offset: 15,  // 调整偏移量
-                      style: { fontWeight: 'bold' }
-                    }}
-                    tick={{ dx: -5 }}
-                  />
+                  <XAxis dataKey="step" />
+                  <YAxis />
                   <Tooltip />
                   <Legend />
                   {selectedResult.game_models.config.players.map((player, index) => (
@@ -496,7 +478,6 @@ export const AdminResults: React.FC = () => {
                   ))}
                 </LineChart>
               </div>
-
               <div className="mt-6">
                 <h4 className="text-lg font-semibold text-gray-800 mb-4">当前回合数据</h4>
                 <div className="overflow-x-auto">
@@ -544,5 +525,4 @@ export const AdminResults: React.FC = () => {
   );
 };
 
-// 添加默认导出
-export default AdminResults;
+export default Results; 

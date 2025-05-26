@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { LogIn, UserPlus, Lock } from 'lucide-react';
+import { handleError } from '../utils/errorHandler';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,8 +18,8 @@ export const Auth: React.FC = () => {
         await signUp(email, password);
       }
     } catch (error) {
-      console.error('认证错误:', error);
-      alert(error instanceof Error ? error.message : '认证过程中发生错误');
+      // console.error('认证错误:', error);
+      handleError(error);
     }
   };
 

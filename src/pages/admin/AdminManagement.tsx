@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { UserPlus, Trash2 } from 'lucide-react';
 import { useToastStore } from '../../components/Toast';
 import { handleError } from '../../utils/errorHandler';
-import { supabaseAdmin } from '../../lib/supabaseClient';
+import { useAuthStore } from '../../store/authStore';
 
 interface AdminUser {
   id: string;
@@ -17,117 +16,86 @@ const AdminManagement: React.FC = () => {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToastStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    fetchAdmins();
-  }, []);
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      console.log('当前用户是管理员，开始获取管理员列表');
+      fetchAdmins();
+    } else {
+      console.log('当前用户不是管理员:', user);
+    }
+  }, [user]);
 
   const fetchAdmins = async () => {
     try {
       setLoading(true);
-      // 先获取管理员列表
+      console.log('开始获取管理员列表');
+      
       const { data: adminData, error: adminError } = await supabase
         .from('admin_users')
         .select('id, user_id, role, created_at')
         .order('created_at', { ascending: false });
   
-      if (adminError) throw adminError;
-  
-      // 检查supabaseAdmin是否已初始化
-      if (!supabaseAdmin) {
-        throw new Error('Supabase admin client not initialized');
+      if (adminError) {
+        console.error('获取管理员列表失败:', adminError);
+        throw new Error(adminError.message);
       }
+
+      console.log('获取到的管理员数据:', adminData);
   
-      // 获取用户列表
-      const { data: { users }, error: userError } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000
-      });
-  
-      if (userError) throw userError;
-  
-      // 合并数据
+      // 批量查邮箱
+      const userIds = adminData.map(admin => admin.user_id);
+      console.log('需要查询的用户ID:', userIds);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-emails-by-ids`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ user_ids: userIds }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('获取用户邮箱失败:', errorData);
+        throw new Error(errorData.error || '获取用户邮箱失败');
+      }
+
+      const { emails } = await response.json();
+      console.log('获取到的邮箱数据:', emails);
+
+      // 合并邮箱
       const formattedAdmins = adminData.map(admin => ({
         id: admin.user_id,
-        email: users.find(u => u.id === admin.user_id)?.email || '',
+        email: emails.find(e => e.id === admin.user_id)?.email || admin.user_id,
         role: admin.role,
         created_at: admin.created_at
       }));
+      console.log('格式化后的管理员数据:', formattedAdmins);
+      
       setAdmins(formattedAdmins);
     } catch (error) {
+      console.error('Error:', error);
       handleError(error);
+      addToast({
+        type: 'error',
+        message: '获取管理员列表失败',
+        duration: 3000,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddAdmin = async () => {
-    const email = prompt('请输入要添加的管理员邮箱：');
-    if (!email) return;
-  
-    try {
-      // 使用Supabase Auth API查找用户
-      const { data: { users }, error: userError } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000
-      });
-      
-      if (userError) throw userError; // 添加错误处理
-      
-      const user = users.find(u => u.email === email);
-      
-      if (!user) {
-        addToast({
-          type: 'error',
-          message: '用户不存在',
-          duration: 3000,
-        });
-        return;
-      }
-  
-      const { error: adminError } = await supabase
-        .from('admin_users')
-        .insert({
-          user_id: user.id,
-          role: 'admin',
-        });
-  
-      if (adminError) throw adminError;
-  
-      addToast({
-        type: 'success',
-        message: '管理员添加成功',
-        duration: 3000,
-      });
-  
-      await fetchAdmins();
-    } catch (error) {
-      handleError(error);
-    }
-  };
-
-  const handleRemoveAdmin = async (id: string, email: string) => {
-    if (!confirm(`确定要移除管理员 ${email} 吗？`)) return;
-
-    try {
-      const { error } = await supabase
-        .from('admin_users')
-        .delete()
-        .eq('user_id', id);
-
-      if (error) throw error;
-
-      addToast({
-        type: 'success',
-        message: '管理员移除成功',
-        duration: 3000,
-      });
-
-      await fetchAdmins();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+    console.log('用户无权访问:', user);
+    return <div className="text-center py-8">无权访问此页面</div>;
+  }
 
   if (loading) {
     return <div className="text-center py-8">加载中...</div>;
@@ -136,14 +104,7 @@ const AdminManagement: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">管理员管理</h2>
-        <button
-          onClick={handleAddAdmin}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          <UserPlus className="w-4 h-4" />
-          添加管理员
-        </button>
+        <h2 className="text-2xl font-bold text-gray-800">管理员列表</h2>
       </div>
 
       <div className="border rounded-lg overflow-hidden">
@@ -153,7 +114,6 @@ const AdminManagement: React.FC = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">角色</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">操作</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -172,16 +132,6 @@ const AdminManagement: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(admin.created_at).toLocaleString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                  {admin.role !== 'super_admin' && (
-                    <button
-                      onClick={() => handleRemoveAdmin(admin.id, admin.email)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -191,5 +141,4 @@ const AdminManagement: React.FC = () => {
   );
 };
 
-// 确保有默认导出
 export default AdminManagement;

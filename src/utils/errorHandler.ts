@@ -69,10 +69,9 @@ export const handleError = (error: unknown): AppError => {
 };
 
 const getUserFriendlyMessage = (error: AppError): string => {
-  // Map error codes to user-friendly messages
+  // Map error codes and raw English messages to user-friendly messages
   const errorMessages: Record<string, string> = {
     'auth/invalid-email': '请输入有效的邮箱地址',
-    'auth/weak-password': '密码强度不够，请至少包含8个字符',
     'auth/email-already-in-use': '该邮箱已被注册',
     'auth/user-not-found': '用户不存在',
     'auth/wrong-password': '密码错误',
@@ -84,18 +83,32 @@ const getUserFriendlyMessage = (error: AppError): string => {
     'permission-denied': '没有权限执行此操作',
     'not-found': '请求的资源不存在',
     'rate-limit': '操作过于频繁，请稍后再试',
+    // 英文原文映射
+    'Password should be at least 6 characters.': '密码长度至少为6个字符。',
+    'Email is not valid': '请输入有效的邮箱地址。',
+    'Invalid login credentials': '登录凭证无效，请检查邮箱和密码。',
+    'User already registered': '该邮箱已被注册。',
+    'Invalid email or password': '邮箱或密码错误。',
+    'Email cannot be empty': '邮箱不能为空。',
+    'Password cannot be empty': '密码不能为空。',
+    'User not found': '用户不存在。',
+    'Invalid email': '请输入有效的邮箱地址。',
+    'Invalid password': '密码无效。',
+    'Email already in use': '该邮箱已被注册。',
+    'Too many login attempts, please try again later.': '登录尝试次数过多，请稍后再试。',
   };
 
-  // Get specific error message or use default
-  const message = error.code && errorMessages[error.code]
-    ? errorMessages[error.code]
-    : error.message || '操作失败，请重试';
-
-  // Add additional context if available
-  if (error.details && typeof error.details === 'string') {
-    return `${message}（${error.details}）`;
+  // 优先用 code 匹配，其次用 message 匹配
+  let message = '';
+  if (error.code && errorMessages[error.code]) {
+    message = errorMessages[error.code];
+  } else if (error.message && errorMessages[error.message]) {
+    message = errorMessages[error.message];
+  } else {
+    message = error.message || '操作失败，请重试';
   }
 
+  // 不再拼接 details，Toast 只显示 message
   return message;
 };
 

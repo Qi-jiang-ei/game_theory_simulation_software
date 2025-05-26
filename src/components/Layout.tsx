@@ -1,12 +1,15 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-// 修改导入部分，添加Shield图标
+// 修改导入部分，添加Shield图标和User图标
 import { Activity, Database, BarChart2, LogOut, Shield } from 'lucide-react';
 
 export const Layout: React.FC = () => {
   const { user, signOut } = useAuthStore();
   const navigate = useNavigate();
+
+  // 调试用，打印当前用户信息
+  console.log('当前用户信息', user);
 
   const handleSignOut = async () => {
     await signOut();
@@ -26,7 +29,9 @@ export const Layout: React.FC = () => {
             博弈论仿真系统
           </NavLink>
           <div className="flex items-center gap-4">
-            <span className="text-gray-600">{user.email}</span>
+            <span className="text-gray-600">
+              {user.email}
+            </span>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-2 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100"
@@ -51,18 +56,7 @@ export const Layout: React.FC = () => {
             </li>
             <li>
               <NavLink
-                to="/admin/models"
-                className={({ isActive }) => 
-                  `px-3 py-2 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`
-                }
-              >
-                <Database className="w-4 h-4 mr-1 inline" />
-                模型管理
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/admin/results"
+                to="/results"
                 className={({ isActive }) => 
                   `px-3 py-2 rounded-md ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`
                 }
@@ -71,8 +65,7 @@ export const Layout: React.FC = () => {
                 仿真结果
               </NavLink>
             </li>
-            {/* 管理员专属导航 */}
-            {(user?.role === 'super_admin' || user?.role === 'admin') && (
+            {user.role === 'super_admin' && (
               <li>
                 <NavLink
                   to="/admin/management"

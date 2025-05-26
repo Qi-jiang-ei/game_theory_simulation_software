@@ -59,3 +59,51 @@ CREATE POLICY "Users can manage their own simulation results"
   FOR ALL
   TO authenticated
   USING (auth.uid() = user_id);
+
+-- 添加管理员访问策略
+CREATE POLICY "Admins can view all simulation results"
+  ON simulation_results
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can manage all simulation results"
+  ON simulation_results
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid()
+      AND role = 'super_admin'
+    )
+  );
+
+-- 添加管理员访问游戏模型的策略
+CREATE POLICY "Admins can view all game models"
+  ON game_models
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can manage all game models"
+  ON game_models
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM admin_users
+      WHERE user_id = auth.uid()
+      AND role = 'super_admin'
+    )
+  );

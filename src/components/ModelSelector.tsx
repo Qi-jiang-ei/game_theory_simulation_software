@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { GameType, CLASSIC_MODELS, GameModel } from '../types/gameTheory';
 import { useGameStore } from '../store/gameStore';
 import { BookOpen, Plus, X, Info, Settings } from 'lucide-react';
-import { ModelEditor } from './ModelEditor';
 
 export const ModelSelector: React.FC = () => {
   const [selectedType, setSelectedType] = useState<GameType | null>(null);
@@ -28,10 +27,17 @@ export const ModelSelector: React.FC = () => {
   };
 
   const handleSaveModel = (model: GameModel) => {
-    setSelectedModel(model);
+    setSelectedModel(model.id);
     setEditingModel(null);
     setIsCreating(false);
   };
+
+  const MAIN_TYPES = [
+    GameType.COMPLETE_STATIC,
+    GameType.COMPLETE_DYNAMIC,
+    GameType.INCOMPLETE_STATIC,
+    GameType.INCOMPLETE_DYNAMIC
+  ];
 
   return (
     <>
@@ -53,7 +59,7 @@ export const ModelSelector: React.FC = () => {
             >
               全部
             </button>
-            {Object.values(GameType).map((type) => (
+            {MAIN_TYPES.map((type) => (
               <button
                 key={type}
                 onClick={() => setSelectedType(type)}
@@ -89,7 +95,7 @@ export const ModelSelector: React.FC = () => {
                   </button>
                 </div>
                 <button
-                  onClick={() => setSelectedModel(model)}
+                  onClick={() => setSelectedModel(model.id)}
                   className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
                 >
                   选择模型
@@ -97,7 +103,8 @@ export const ModelSelector: React.FC = () => {
               </div>
             </div>
           ))}
-          <button
+          {/* 注释掉创建自定义模型按钮 */}
+          {/* <button
             onClick={handleCreateCustom}
             className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center gap-2 text-gray-600 hover:text-blue-600"
           >
@@ -106,7 +113,7 @@ export const ModelSelector: React.FC = () => {
             <p className="text-xs text-center text-gray-500">
               设计您自己的博弈模型，<br />定制参与者、策略和收益
             </p>
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -210,16 +217,124 @@ export const ModelSelector: React.FC = () => {
       )}
 
       {/* 模型编辑器 */}
-      {(editingModel || isCreating) && (
-        <ModelEditor
-          model={editingModel || undefined}
-          onSave={handleSaveModel}
-          onCancel={() => {
-            setEditingModel(null);
-            setIsCreating(false);
-          }}
-          isCustom={isCreating}
-        />
+      {editingModel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h3 className="text-xl font-bold mb-4">参数设置</h3>
+            {/* 模型名称 */}
+            <div className="mb-4">
+              <label className="block mb-1">模型名称</label>
+              <input
+                className="border px-2 py-1 rounded w-full"
+                value={editingModel.name}
+                onChange={e => setEditingModel({ ...editingModel, name: e.target.value })}
+              />
+            </div>
+            {/* 模型描述 */}
+            <div className="mb-4">
+              <label className="block mb-1">模型描述</label>
+              <textarea
+                className="border px-2 py-1 rounded w-full"
+                value={editingModel.description}
+                onChange={e => setEditingModel({ ...editingModel, description: e.target.value })}
+              />
+            </div>
+            {/* 参与者与策略 */}
+            <div className="mb-4">
+              <label className="block mb-1">参与者与策略</label>
+              {editingModel.players.map((player, pIdx) => (
+                <div key={player.id} className="mb-2 border rounded p-2">
+                  <input
+                    className="border px-2 py-1 rounded mb-1 w-1/2"
+                    value={player.name}
+                    onChange={e => {
+                      const newPlayers = [...editingModel.players];
+                      newPlayers[pIdx].name = e.target.value;
+                      setEditingModel({ ...editingModel, players: newPlayers });
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {player.strategies.map((strategy, sIdx) => (
+                      <input
+                        key={sIdx}
+                        className="border px-2 py-1 rounded"
+                        value={strategy}
+                        onChange={e => {
+                          const newPlayers = [...editingModel.players];
+                          newPlayers[pIdx].strategies[sIdx] = e.target.value;
+                          setEditingModel({ ...editingModel, players: newPlayers });
+                        }}
+                      />
+                    ))}
+                    <button
+                      className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 rounded"
+                      onClick={() => {
+                        const newPlayers = [...editingModel.players];
+                        newPlayers[pIdx].strategies.push('新策略');
+                        setEditingModel({ ...editingModel, players: newPlayers });
+                      }}
+                      type="button"
+                    >+策略</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* 收益矩阵 */}
+            <div className="mb-4">
+              <label className="block mb-1">收益矩阵</label>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse border border-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-200 px-2 py-1 bg-gray-50">策略组合</th>
+                      {editingModel.players.map(player => (
+                        <th key={player.id} className="border border-gray-200 px-2 py-1 bg-gray-50">{player.name}收益</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(editingModel.payoffMatrix).map(([strategies, payoffs], rowIdx) => (
+                      <tr key={strategies}>
+                        <td className="border border-gray-200 px-2 py-1">{strategies}</td>
+                        {payoffs.map((payoff, idx) => (
+                          <td key={idx} className="border border-gray-200 px-2 py-1 text-center">
+                            <input
+                              className="border px-1 py-0.5 rounded w-16 text-center"
+                              value={payoff}
+                              type="number"
+                              onChange={e => {
+                                const newMatrix = { ...editingModel.payoffMatrix };
+                                newMatrix[strategies][idx] = Number(e.target.value);
+                                setEditingModel({ ...editingModel, payoffMatrix: newMatrix });
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="flex justify-end gap-4 mt-6">
+              <button
+                onClick={() => setEditingModel(null)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  handleSaveModel(editingModel);
+                  setEditingModel(null);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
