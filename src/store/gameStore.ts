@@ -4,7 +4,6 @@ import { GameModel, GameType, SimulationResult, CLASSIC_MODELS } from '../types/
 import { analyzeGameResults } from '../utils/gameTheory';
 import { useAuthStore } from './authStore';
 
-// 移除重复的 SimulationState 和 SimulationResult 接口定义，因为它们已经从 gameTheory.ts 导入
 
 export interface GameStore {
   selectedModelId: string | null;
@@ -184,22 +183,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const userId = user.id;
     const results = simulationState.results;
 
+    // 获取当前选中的模型配置
+    const selectedModel = CLASSIC_MODELS.find((m: GameModel) => m.id === selectedModelId);
+    if (!selectedModel) {
+      throw new Error('未找到选中的模型配置');
+    }
+
+    // 1. 先插入模型快照
     const { data: modelData, error: modelError } = await supabase
       .from('game_models')
-      .select('name')
-      .eq('id', selectedModelId)
+      .insert({
+        name: selectedModel.name,
+        type: selectedModel.type,
+        description: selectedModel.description,
+        config: {
+          players: selectedModel.players,
+          payoffMatrix: selectedModel.payoffMatrix
+        },
+        user_id: userId
+      })
+      .select()
       .single();
 
     if (modelError) {
       throw modelError;
     }
 
+    // 2. 再插入仿真结果
     const { data: resultData, error: resultError } = await supabase
       .from('simulation_results')
       .insert({
         user_id: userId,
-        model_id: selectedModelId,
-        model_name: modelData.name,
+        model_id: modelData.id, // 这里是新插入模型的uuid
         results: results,
         created_at: new Date().toISOString()
       })
@@ -212,7 +227,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // 检查 window 对象是否存在，如果存在则显示提示
     if (typeof window !== 'undefined') {
-    window.alert('仿真结果已成功保存到管理系统！');
+      window.alert('仿真结果已成功保存到管理系统！');
     } else {
       console.log('仿真结果已成功保存到管理系统！');
     }
